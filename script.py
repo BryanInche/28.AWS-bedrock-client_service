@@ -107,46 +107,68 @@ def call_text(prompt, modelId="anthropic.claude-3-haiku-20240307-v1:0"):
     return results
 
 
+# =====================================================================
+# 4. CAPA DE SERVICIO DE IA: INFERENCIA MULTIMODAL (VISIÓN + TEXTO)
+# =====================================================================
+# CORRECCIÓN DE NOMBRE: Renombramos a 'call_image' para coherencia con tu prueba final.
 
+def call_image(file_path, caption, modelId="anthropic.claude-3-haiku-20240307-v1:0"):
+    """
+    Justificación: Orquesta la lectura del archivo del disco, su codificación binaria,
+    y construye el payload mixto (Imagen + Instrucción) para el modelo visual.
+    """
+    
+    # 1. LEER ARCHIVO Y CONVERTIR A BASE64 (Justificación Arquitectónica)
+    # abrimos el archivo en modo 'rb' (read binary / lectura binaria).
+    # .read() extrae los bytes crudos. base64.b64encode codifica esos bytes a formato Base64.
+    # .decode('utf-8') convierte ese objeto de bytes codificado en un String de texto estándar.
+    with open(file_path, "rb") as image_file:
+        base64_string = base64.b64encode(image_file.read()).decode("utf-8")
 
-def call_multimodal(file,caption,modelId="anthropic.claude-3-haiku-20240307-v1:0"):
-    #esta funcion es para llamar a un modelo multimodal con una imagen y un texto
+    # 2. ARMAR EL PAYLOAD MULTIMODAL
+    # Fíjate que el array 'content' lleva DOS bloques: uno visual y uno de texto.
     config = {
-    "anthropic_version": "bedrock-2023-05-31",
-    "max_tokens": 4096,
-    "messages": [
-        {
-            "role": "user",
-            "content": [
-                {
-                     "type": "image",
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 4096,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    # Bloque 1: La imagen serializada
+                    {
+                        "type": "image",
                         "source": {
                             "type": "base64",
-                            "media_type": read_mime_type(file),
-                            "data": base64.b64encode(open(file, "rb").read()).decode("utf-8")
+                            # Llamamos dinámicamente a nuestra función helper para el MIME exacto
+                            "media_type": read_mime_type(file_path),
+                            # Inyectamos el string larguísimo de la imagen codificada
+                            "data": base64_string
                         }
-                },
-                {
-                    "type": "text",
-                    "text": caption
-            }]
-        }
-    ]
+                    },
+                    # Bloque 2: La instrucción o pregunta sobre la imagen
+                    {
+                        "type": "text",
+                        "text": caption
+                    }
+                ]
+            }
+        ]
     }
 
+    # 3. INVOCACIÓN Y EXTRACCIÓN (Mismo patrón industrial del call_text)
     body = json.dumps(config)
-    modelId = modelId
-    accept = "application/json"
-    contentType = "application/json"
-
+    
     response = client.invoke_model(
-    body=body, modelId=modelId, accept=accept, contentType=contentType)
+        body=body, 
+        modelId=modelId, 
+        accept="application/json", 
+        contentType="application/json"
+    )
+    
     response_body = json.loads(response.get("body").read())
-    results = response_body.get("content")[0].get("text")
-    return results
+    return response_body.get("content")[0].get("text")
 
-
-
+"""
 ##################################################
 # Validar conexion al modelo de AWS bedrock
 #################################################
@@ -158,3 +180,22 @@ call_text(prompt, "anthropic.claude-3-haiku-20240307-v1:0")  # Si se quiere se p
 pic_path = "./meetup_test_image.jpg"
 caption = "Cuantas personas hay en la imagen? cuantas laptos ves? cuantos usan gorro o sombrero?, de que color es el hoddie de la primer persona a la derecha de la foto?"
 print(call_image(pic_path,caption,"anthropic.claude-3-haiku-20240307-v1:0"))
+"""
+
+# =====================================================================
+# 5. BLOQUE DE VALIDACIÓN Y PRUEBAS DE CONECTIVIDAD
+# =====================================================================
+
+if __name__ == "__main__":
+    print("--- PRUEBA 1: TEXTO SOLO (NLP) ---")
+    prompt_nlp = "Estoy por abrir una cafeteria al paso, recomiendame 5 nombres"
+    print(call_text(prompt_nlp))
+    print("\n" + "="*50 + "\n")
+
+    # NOTA PARA EJECUTAR LA PRUEBA 2: 
+    # Asegúrate de tener una imagen real llamada 'meetup_test_image.jpg' en la misma carpeta,
+    # de lo contrario Python lanzará un error FileNotFoundError al intentar abrir el archivo.
+    # print("--- PRUEBA 2: MULTIMODAL (VISIÓN) ---")
+    # pic_path = "./meetup_test_image.jpg"
+    # caption_text = "Cuantas personas hay en la imagen? cuantas laptos ves?"
+    # print(call_image(pic_path, caption_text))
