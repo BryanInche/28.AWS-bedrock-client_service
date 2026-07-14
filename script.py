@@ -1,3 +1,4 @@
+# script.py
 import pandas as pd
 import boto3
 import streamlit as st
@@ -168,20 +169,6 @@ def call_image(file_path, caption, modelId="anthropic.claude-3-haiku-20240307-v1
     response_body = json.loads(response.get("body").read())
     return response_body.get("content")[0].get("text")
 
-"""
-##################################################
-# Validar conexion al modelo de AWS bedrock
-#################################################
-# 1. Procesamiento de Lenguaje Natural como input para el LLM
-prompt = "Estoy por abrir una cafeteria al paso, recomiendame 5 nombres"
-call_text(prompt, "anthropic.claude-3-haiku-20240307-v1:0")  # Si se quiere se puede cambiar el modelo (modificando el Model_id, que se tienen listado en AWS Bedrock)
-
-# 2. Procesamiento de Imagen como input para el LLM
-pic_path = "./meetup_test_image.jpg"
-caption = "Cuantas personas hay en la imagen? cuantas laptos ves? cuantos usan gorro o sombrero?, de que color es el hoddie de la primer persona a la derecha de la foto?"
-print(call_image(pic_path,caption,"anthropic.claude-3-haiku-20240307-v1:0"))
-"""
-
 # =====================================================================
 # 5. BLOQUE DE VALIDACIÓN Y PRUEBAS DE CONECTIVIDAD
 # =====================================================================
@@ -190,7 +177,6 @@ if __name__ == "__main__":
     print("--- PRUEBA 1: TEXTO SOLO (NLP) ---")
     prompt_nlp = "Estoy por abrir una cafeteria al paso, recomiendame 5 nombres"
     print(call_text(prompt_nlp))
-    print("\n" + "="*50 + "\n")
 
     # NOTA PARA EJECUTAR LA PRUEBA 2: 
     # Asegúrate de tener una imagen real llamada 'meetup_test_image.jpg' en la misma carpeta,
@@ -199,3 +185,4 @@ if __name__ == "__main__":
     # pic_path = "./meetup_test_image.jpg"
     # caption_text = "Cuantas personas hay en la imagen? cuantas laptos ves?"
     # print(call_image(pic_path, caption_text))
+
