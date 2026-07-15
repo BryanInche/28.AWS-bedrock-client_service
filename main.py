@@ -1,5 +1,6 @@
 # main.py
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware # IMPORTANTE: Importamos el control de acceso
 from pydantic import BaseModel
 import os
 
@@ -18,6 +19,25 @@ app = FastAPI(
     description="Backend modular para generación de contenido usando AWS Bedrock",
     version="1.1.0"
 )
+
+# =====================================================================
+# CONFIGURACIÓN DE CORS (PERMISOS PARA EL FRONTEND)
+# =====================================================================
+# Definimos qué direcciones externas tienen permitido consumir nuestra API.
+# En desarrollo local, permitiremos que el puerto por defecto de Vue (5173) se conecte.
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,          # Permite peticiones desde las URLs de nuestra lista
+    allow_credentials=True,
+    allow_methods=["*"],            # Permite todos los métodos HTTP (GET, POST, etc.)
+    allow_headers=["*"],            # Permite todas las cabeceras HTTP estándar
+)
+
 
 # Definimos la estructura limpia de los datos que nuestra API va a recibir
 class TextRequest(BaseModel):
@@ -91,3 +111,4 @@ if __name__ == "__main__":
     import uvicorn
     # Le decimos a Python que él mismo encienda el servidor Uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+
