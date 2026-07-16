@@ -1,0 +1,32 @@
+# ==========================================
+# ENTORNOS VIRTUALES (¡LO MÁS IMPORTANTE!)
+# ==========================================
+venv_aws/
+venv/
+env/
+ENV/
+
+# ==========================================
+# CACHÉ DE PYTHON Y COMPILACIÓN
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# ==========================================
+# ARCHIVOS DE CONFIGURACIÓN Y SECRETOS
+# ==========================================
+.env
+.posts/
+.idea/
+.vscode/
+*.local
+
+# ==========================================
+# DATOS Y MULTIMEDIA PESADA (OPCIONAL)
+# ==========================================
+# Si no quieres subir tus imágenes de prueba a GitHub, desbloquea las líneas de abajo:
+# *.jpg
+# *.png
+# *.webp
