@@ -1,4 +1,14 @@
 # script.py
+
+# En LOCAL (tu laptop, desarrollo)
+from dotenv import load_dotenv
+load_dotenv()  # esto lee backend/.env y lo mete en os.environ
+
+# En LA NUBE (ECS, Lambda, EC2)
+# Permite que el mismo código sirva para los dos mundos.
+aws = boto3.session.Session(region_name=region)
+
+
 import pandas as pd
 import boto3
 import streamlit as st
@@ -8,42 +18,47 @@ import os
 import base64
 import mimetypes
 
-# 1. El Entorno Virtual Aislado (venv_aws)
-
+# =====================================================================
+# 1. CONFIGURACIÓN DE REGIÓN Y SESIÓN DE AWS
+# =====================================================================
 region = "us-east-1"
 os.environ["AWS_REGION"] = region
 llm_response = ""
 
 # 2. El Repositorio de Código Git Vinculado (main branch en GitHub)
-
-
-# 3. El Perfil de Autenticación Local de AWS CLI (profile_name="genaiday")
-# Almacena de forma segura tus llaves de acceso (Access Key y Secret Key) en el sistema operativo Windows y las asocia a un perfil específico con 
-# permisos controlados para interactuar con Amazon Bedrock.
-# Creamos una "Sesión" de AWS.
-# Esto lee el archivo oculto en tu computadora donde guardamos tus llaves secretas
-# al ejecutar 'aws configure --profile genaiday'. Así, AWS sabe que eres tú
-# y que tienes permisos, sin tener que escribir contraseñas en el código.
-aws = boto3.session.Session(profile_name="genaiday", region_name=region) # Credenciales de AWS Bedrock
-
-# 2. A partir de esa sesión segura, instanciamos el cliente específico para interactuar
-# con los modelos de IA en tiempo real. 'bedrock-runtime' es el servicio diseñado
-# exclusivamente para enviar prompts y recibir respuestas (inferencia).
-client = aws.client("bedrock-runtime")  # Uso de cliente bedrock-runtime
-
+# Antes: boto3.session.Session(profile_name="genaiday", region_name=region)
+#
+# El parámetro profile_name solo funciona en TU máquina, porque lee
+# el archivo local ~/.aws/credentials que creaste con
+# "aws configure --profile genaiday". Ese archivo NO existe dentro de
+# un contenedor Docker ni en un runner de GitHub Actions.
+#
+# Al quitar profile_name, boto3 sigue su "cadena de resolución de
+# credenciales" por defecto, en este orden:
+#   1. Variables de entorno (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY)
+#   2. Rol IAM asignado al contenedor/instancia (ECS, EC2, Lambda)
+#   3. Archivo ~/.aws/credentials (perfil "default"), si existe
+#
+# En LOCAL: define las variables en un archivo .env (ya está en tu
+# .gitignore) y cárgalas con python-dotenv, o usa
+# "aws configure" (perfil default) sin profile_name.
+#
+# En PRODUCCIÓN (ECS/Lambda): usa un Role de IAM asociado al servicio,
+# NUNCA pongas llaves de acceso como variables de entorno en producción
+# si puedes evitarlo; el Role es más seguro.
+# -----------------------------------------------------------------
+aws = boto3.session.Session(region_name=region)
+client = aws.client("bedrock-runtime")
+ 
 #Recuerda que en AWS hay dos clientes para Bedrock: bedrock (para 
 # administrar modelos, crear custom models y fine-tuning) y 
 # bedrock-runtime (diseñado exclusivamente para la inferencia de baja 
 # latencia en tiempo real).
 
 
-#4. El Mapeador Multimodal (read_mime_type)
-#Analiza dinámicamente cualquier extensión de archivo (incluyendo formatos web optimizados como .webp) 
-# y extrae su identificador estándar de internet (MIME Type).
-
-##################################################
-#Preparación Multimodal
-####################################################
+# =====================================================================
+# 2. UTILIDAD: DETECCIÓN DE TIPO MIME
+# =====================================================================
 # Función de Lectura de Archivos
 # Esto dejará tu backend listo para cuando el agente reciba, 
 # por ejemplo, adjuntos de reclamos en formato de imagen.
@@ -63,9 +78,9 @@ def read_mime_type(file_path):
     # que es la cadena de texto con el tipo (ej. "image/jpeg") y lo retornamos.
     return mime_type[0]
 
-######################################################
-#Función de Inferencia (call_text)
-#######################################################
+# =====================================================================
+# 3. INFERENCIA DE TEXTO
+# =====================================================================
 #Inference Payload nativo que requiere la API de Anthropic dentro de 
 # Bedrock. anthropic_version es un parámetro obligatorio que exige AWS 
 # para saber qué esquema de API de Claude estás invocando.
@@ -96,7 +111,8 @@ def call_text(prompt, modelId="anthropic.claude-3-haiku-20240307-v1:0"):
     # estándar (accept y contentType) para informarle a AWS que tanto el 
     # envío como la recepción son JSON puros.
     response = client.invoke_model(
-        body = body, modelId=modelId, accept=accept, contentType=contentType)
+        body = body, modelId=modelId, accept=accept, 
+        contentType=contentType)
     
     # Se usa json.loads() para deserializarlos de vuelta a un diccionario
     #  de Python, y finalmente navegas por las llaves del JSON de Anthropic 
@@ -107,27 +123,18 @@ def call_text(prompt, modelId="anthropic.claude-3-haiku-20240307-v1:0"):
     
     return results
 
-
 # =====================================================================
-# 4. CAPA DE SERVICIO DE IA: INFERENCIA MULTIMODAL (VISIÓN + TEXTO)
+# 4. INFERENCIA MULTIMODAL (VISIÓN + TEXTO)
 # =====================================================================
-# CORRECCIÓN DE NOMBRE: Renombramos a 'call_image' para coherencia con tu prueba final.
-
-def call_image(file_path, caption, modelId="anthropic.claude-3-haiku-20240307-v1:0"):
-    """
-    Justificación: Orquesta la lectura del archivo del disco, su codificación binaria,
-    y construye el payload mixto (Imagen + Instrucción) para el modelo visual.
-    """
-    
-    # 1. LEER ARCHIVO Y CONVERTIR A BASE64 (Justificación Arquitectónica)
-    # abrimos el archivo en modo 'rb' (read binary / lectura binaria).
-    # .read() extrae los bytes crudos. base64.b64encode codifica esos bytes a formato Base64.
-    # .decode('utf-8') convierte ese objeto de bytes codificado en un String de texto estándar.
-    with open(file_path, "rb") as image_file:
-        base64_string = base64.b64encode(image_file.read()).decode("utf-8")
-
-    # 2. ARMAR EL PAYLOAD MULTIMODAL
-    # Fíjate que el array 'content' lleva DOS bloques: uno visual y uno de texto.
+# CAMBIO IMPORTANTE:
+# Antes esta función recibía un file_path y lo abría directamente.
+# Ahora recibe los BYTES crudos del archivo (image_bytes) y el nombre
+# original (filename) solo para deducir el MIME type. Así el backend
+# nunca vuelve a tocar el disco ni confía en una ruta enviada por el
+# cliente. Ver el nuevo endpoint en main.py para el detalle de por qué.
+def call_image(image_bytes, filename, caption, modelId="anthropic.claude-3-haiku-20240307-v1:0"):
+    base64_string = base64.b64encode(image_bytes).decode("utf-8")
+ 
     config = {
         "anthropic_version": "bedrock-2023-05-31",
         "max_tokens": 4096,
@@ -135,37 +142,29 @@ def call_image(file_path, caption, modelId="anthropic.claude-3-haiku-20240307-v1
             {
                 "role": "user",
                 "content": [
-                    # Bloque 1: La imagen serializada
                     {
                         "type": "image",
                         "source": {
                             "type": "base64",
-                            # Llamamos dinámicamente a nuestra función helper para el MIME exacto
-                            "media_type": read_mime_type(file_path),
-                            # Inyectamos el string larguísimo de la imagen codificada
-                            "data": base64_string
-                        }
+                            "media_type": read_mime_type(filename),
+                            "data": base64_string,
+                        },
                     },
-                    # Bloque 2: La instrucción o pregunta sobre la imagen
-                    {
-                        "type": "text",
-                        "text": caption
-                    }
-                ]
+                    {"type": "text", "text": caption},
+                ],
             }
-        ]
+        ],
     }
-
-    # 3. INVOCACIÓN Y EXTRACCIÓN (Mismo patrón industrial del call_text)
+ 
     body = json.dumps(config)
-    
+ 
     response = client.invoke_model(
-        body=body, 
-        modelId=modelId, 
-        accept="application/json", 
-        contentType="application/json"
+        body=body,
+        modelId=modelId,
+        accept="application/json",
+        contentType="application/json",
     )
-    
+ 
     response_body = json.loads(response.get("body").read())
     return response_body.get("content")[0].get("text")
 
@@ -177,12 +176,4 @@ if __name__ == "__main__":
     print("--- PRUEBA 1: TEXTO SOLO (NLP) ---")
     prompt_nlp = "Estoy por abrir una cafeteria al paso, recomiendame 5 nombres"
     print(call_text(prompt_nlp))
-
-    # NOTA PARA EJECUTAR LA PRUEBA 2: 
-    # Asegúrate de tener una imagen real llamada 'meetup_test_image.jpg' en la misma carpeta,
-    # de lo contrario Python lanzará un error FileNotFoundError al intentar abrir el archivo.
-    # print("--- PRUEBA 2: MULTIMODAL (VISIÓN) ---")
-    # pic_path = "./meetup_test_image.jpg"
-    # caption_text = "Cuantas personas hay en la imagen? cuantas laptos ves?"
-    # print(call_image(pic_path, caption_text))
 
