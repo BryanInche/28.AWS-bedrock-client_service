@@ -1,114 +1,117 @@
 # main.py
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware # IMPORTANTE: Importamos el control de acceso
-from pydantic import BaseModel
 import os
 
-# =====================================================================
-# 1. IMPORTACIÓN DE NUESTRA CAPA DE IA (Tus funciones de script.py)
-# =====================================================================
-# Aquí ocurre la magia. Python busca el archivo 'script.py' en la misma carpeta
-# e importa las funciones específicas que ya programaste y optimizaste.
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
 from script import call_text, call_image
 
 # =====================================================================
-# 2. INICIALIZACIÓN DE FASTAPI Y ESQUEMAS DE VALIDACIÓN
+# 1. INICIALIZACIÓN DE FASTAPI
 # =====================================================================
 app = FastAPI(
     title="API del Agente de Contenido",
     description="Backend modular para generación de contenido usando AWS Bedrock",
-    version="1.1.0"
+    version="1.2.0",
 )
 
 # =====================================================================
-# CONFIGURACIÓN DE CORS (PERMISOS PARA EL FRONTEND)
+# 2. CONFIGURACIÓN DE CORS, para darle acceso a otras APIs al Backend
 # =====================================================================
-# Definimos qué direcciones externas tienen permitido consumir nuestra API.
-# En desarrollo local, permitiremos que el puerto por defecto de Vue (5173) se conecte.
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+# CAMBIO IMPORTANTE:
+# Antes la lista de orígenes estaba fija en el código (solo servía en
+# local). Ahora se lee de la variable de entorno ALLOWED_ORIGINS, que
+# en local puede venir de un .env y en producción se define en el
+# servicio de despliegue (ECS task definition, Lambda env vars, etc.)
+# Formato esperado: "https://miapp.com,https://www.miapp.com"
+origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,          # Permite peticiones desde las URLs de nuestra lista
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],            # Permite todos los métodos HTTP (GET, POST, etc.)
-    allow_headers=["*"],            # Permite todas las cabeceras HTTP estándar
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
-# Definimos la estructura limpia de los datos que nuestra API va a recibir
 class TextRequest(BaseModel):
     prompt: str
     model_id: str = "anthropic.claude-3-haiku-20240307-v1:0"
 
-class ImageRequest(BaseModel):
-    file_path: str
-    caption: str
-    model_id: str = "anthropic.claude-3-haiku-20240307-v1:0"
 
 # =====================================================================
-# 3. ENDPOINTS DE LA API (Rutas que llamará Vue.js)
+# 3. ENDPOINTS
 # =====================================================================
-
 @app.get("/")
 def health_check():
-    """Ruta para verificar que el servidor de FastAPI está encendido."""
     return {"status": "ok", "message": "Backend modular en línea."}
 
 
 @app.post("/api/v1/content/generate-text")
 def generate_text_endpoint(request: TextRequest):
-    """
-    Recibe el prompt del usuario en formato JSON, llama a la función
-    'call_text' de script.py y retorna la respuesta procesada.
-    """
     try:
-        # LLAMADA DIRECTA A TU FUNCIÓN DE SCRIPT.PY
         response_text = call_text(prompt=request.prompt, modelId=request.model_id)
-        
-        return {
-            "status": "success",
-            "type": "text",
-            "result": response_text
-        }
+        return {"status": "success", "type": "text", "result": response_text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en el motor de IA: {str(e)}")
 
 
-@app.post("/api/v1/content/analyze-image")
-def analyze_image_endpoint(request: ImageRequest):
-    """
-    Recibe la ruta de una imagen y una instrucción, llama a la función
-    'call_image' de script.py y retorna el análisis visual del modelo.
-    """
-    try:
-        # Validamos primero que el archivo físico realmente exista en el backend
-        if not os.path.exists(request.file_path):
-            raise HTTPException(status_code=404, detail="El archivo de imagen no fue encontrado en el servidor.")
+# CAMBIO IMPORTANTE (seguridad):
+# Antes este endpoint recibía "file_path" como texto plano en el JSON y
+# el servidor abría directamente esa ruta con open(request.file_path).
+# Esto es una vulnerabilidad de "path traversal": cualquier cliente
+# podía mandar una ruta arbitraria del sistema de archivos del
+# servidor (ej. "../../.env" o una ruta absoluta) y el backend la leía
+# sin más validación.
+#
+# Ahora el endpoint recibe el archivo real como "multipart/form-data"
+# usando UploadFile de FastAPI. El backend nunca vuelve a tocar el
+# disco del servidor con una ruta que no controla; simplemente lee los
+# bytes que el cliente subió, y opcionalmente valida tipo/tamaño antes
+# de mandarlos a Bedrock.
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+MAX_IMAGE_SIZE_MB = 5
 
-        # LLAMADA DIRECTA A TU FUNCIÓN MULTIMODAL DE SCRIPT.PY
+
+@app.post("/api/v1/content/analyze-image")
+async def analyze_image_endpoint(
+    file: UploadFile = File(...),
+    caption: str = Form(...),
+    model_id: str = Form("anthropic.claude-3-haiku-20240307-v1:0"),
+):
+    try:
+        if file.content_type not in ALLOWED_IMAGE_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tipo de archivo no permitido: {file.content_type}",
+            )
+
+        image_bytes = await file.read()
+
+        if len(image_bytes) > MAX_IMAGE_SIZE_MB * 1024 * 1024:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El archivo excede el límite de {MAX_IMAGE_SIZE_MB}MB.",
+            )
+
         response_analysis = call_image(
-            file_path=request.file_path, 
-            caption=request.caption, 
-            modelId=request.model_id
+            image_bytes=image_bytes,
+            filename=file.filename,
+            caption=caption,
+            modelId=model_id,
         )
 
-        return {
-            "status": "success",
-            "type": "multimodal",
-            "result": response_analysis
-        }
+        return {"status": "success", "type": "multimodal", "result": response_analysis}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en el motor multimodal: {str(e)}")
-    
 
-# uvicorn main:app --reload  # reload, para reiniciar el server cada que cambias algo en el code
-# Encender el servidor desde main.py:
+
 if __name__ == "__main__":
     import uvicorn
-    # Le decimos a Python que él mismo encienda el servidor Uvicorn
+
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
 
