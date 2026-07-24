@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-from llm_providers import get_provider
+from llm_proveedors import get_provider
 
 load_dotenv()
 
