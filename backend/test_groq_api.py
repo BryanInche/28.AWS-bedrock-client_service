@@ -10,3 +10,6 @@ response = client.chat.completions.create(
     messages=[{"role": "user", "content": "Hola, ¿qué modelo eres?"}]
 )
 print(response.choices[0].message.content)
+
+for model in client.models.list().data:
+    print(model.id)

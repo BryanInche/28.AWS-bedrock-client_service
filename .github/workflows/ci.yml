@@ -1,0 +1,67 @@
+name: CI - Backend
+
+# =====================================================================
+# CUÁNDO SE DISPARA ESTE WORKFLOW
+# =====================================================================
+# Se ejecuta automáticamente en:
+# - Cada "push" a la rama main
+# - Cada Pull Request que apunte a main (antes de hacer merge)
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-backend:
+    # La máquina virtual temporal que GitHub enciende para correr esto.
+    # No es tu PC ni ningún servidor tuyo — se crea y se destruye sola.
+    runs-on: ubuntu-latest
+
+    # Esto le dice al runner en qué carpeta correr los comandos,
+    # ya que tu backend vive en /backend, no en la raíz del repo.
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      # 1. Descarga tu código al runner (equivalente a un git clone)
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      # 2. Instala Python en la máquina temporal
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 3. Instala tus dependencias, igual que harías en tu laptop
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff  # linter rápido para detectar errores de código
+
+      # 4. Linter: detecta errores de sintaxis, imports rotos, código muerto.
+      #    Esto es justo lo que habría atrapado el error de
+      #    "llm_proveedors" vs "llm_providers" ANTES de hacer merge.
+      - name: Analizar código (lint)
+        run: ruff check .
+
+      # 5. Verifica que la app pueda importarse sin errores.
+      #    No necesita credenciales reales: solo confirma que main.py
+      #    y todos sus imports (llm_providers, etc.) están bien
+      #    conectados, usando una key falsa solo para que no truene
+      #    el constructor de GroqProvider.
+      - name: Verificar que la app importa correctamente
+        env:
+          LLM_PROVIDER: groq
+          GROQ_API_KEY: fake-key-solo-para-test-de-import
+          ALLOWED_ORIGINS: http://localhost:5173
+        run: python -c "import main; print('main.py importa correctamente ✅')"
+
+      # 6. (Opcional, cuando tengas tests reales)
+      # - name: Correr tests
+      #   env:
+      #     GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      #   run: pytest
