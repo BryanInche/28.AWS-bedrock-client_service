@@ -1,0 +1,3 @@
+# Chekear Ruff para CI
+(venv_aws) PS C:\Freelance\AWS_Bedrock\backend> ruff check .
+All checks passed!
