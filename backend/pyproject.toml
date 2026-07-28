@@ -1,0 +1,11 @@
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# B008: FastAPI usa File(...)/Form(...)/Depends(...) como default de
+#       parámetros a propósito — es el patrón oficial de la librería,
+#       no un bug. Ruff no lo reconoce como excepción por defecto.
+# BLE001: capturar "Exception" genérico en el borde de un endpoint HTTP
+#         es una práctica aceptada para siempre devolver una respuesta
+#         controlada al cliente en vez de un 500 sin manejar.
+ignore = ["B008", "BLE001"]

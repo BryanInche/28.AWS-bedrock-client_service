@@ -5,7 +5,7 @@ import mimetypes
 import os
 
 import boto3  # Libreria para conectar con AWS
-from dotenv import load_dotenv # Libreria para manejo de varibles de entorno
+from dotenv import load_dotenv  # Libreria para manejo de varibles de entorno
 
 # =====================================================================
 # 1. CARGA DE VARIABLES DE ENTORNO

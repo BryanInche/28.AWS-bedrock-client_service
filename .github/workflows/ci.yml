@@ -60,7 +60,7 @@ jobs:
           ALLOWED_ORIGINS: http://localhost:5173
         run: python -c "import main; print('main.py importa correctamente ✅')"
 
-      # 6. (Opcional, cuando tengas tests reales)
+      # 6. (Opcional, para tests reales)
       # - name: Correr tests
       #   env:
       #     GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}

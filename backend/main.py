@@ -1,10 +1,10 @@
 # main.py
 import os
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from dotenv import load_dotenv
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from dotenv import load_dotenv
 
 from llm_proveedors import get_provider
 
@@ -62,7 +62,7 @@ def generate_text_endpoint(request: TextRequest):
         response_text = llm.call_text(prompt=request.prompt, model=request.model_id)
         return {"status": "success", "type": "text", "result": response_text}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error en el motor de IA: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error en el motor de IA: {e!s}")
 
 
 @app.post("/api/v1/content/analyze-image")
@@ -89,7 +89,7 @@ async def analyze_image_endpoint(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error en el motor multimodal: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error en el motor multimodal: {e!s}")
 
 
 if __name__ == "__main__":
