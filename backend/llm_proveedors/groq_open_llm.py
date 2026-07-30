@@ -9,7 +9,7 @@ from .base import LLMProvider
 # IMPORTANTE: verifica los nombres vigentes en console.groq.com/docs/models
 # antes de usar en producción; Groq actualiza/retira modelos con frecuencia.
 DEFAULT_TEXT_MODEL = "llama-3.3-70b-versatile"
-DEFAULT_VISION_MODEL = "llama-3.2-11b-vision-preview"
+DEFAULT_VISION_MODEL = "qwen/qwen3.6-27b"
 
 
 class GroqProvider(LLMProvider):

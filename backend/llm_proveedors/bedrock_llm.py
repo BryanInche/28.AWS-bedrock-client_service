@@ -24,7 +24,7 @@ class BedrockProvider(LLMProvider):
         session = boto3.session.Session(region_name=region) # Alineado para Local y Cloud
         self.client = session.client("bedrock-runtime")
 
-    # UTILIDAD: DETECCIÓN DE TIPO MIME (Identificar que tipo de archivo ingresa/ Imagenes)
+    # UTILIDAD: DETECCIÓN DE TIPO MIME (Identificar que tipo de archivo ingresa/ Texto, Imagenes o ambos)
     def _read_mime_type(self, filename: str) -> str:
         mimetypes.add_type("image/webp", ".webp")
         mime_type, _ = mimetypes.guess_type(filename)

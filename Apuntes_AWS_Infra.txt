@@ -1,3 +1,6 @@
 # Chekear Ruff para CI
 (venv_aws) PS C:\Freelance\AWS_Bedrock\backend> ruff check .
 All checks passed!
+
+# Validar funcionamiento de backend:
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/content/generate-text" -H "Content-Type: application/json" -d "{\"prompt\": \"Recomiendame 3 nombres para una cafeteria\"}"
