@@ -3,4 +3,7 @@
 All checks passed!
 
 # Validar funcionamiento de backend:
+# 1. Procesar Texto
 curl.exe -X POST "http://127.0.0.1:8000/api/v1/content/generate-text" -H "Content-Type: application/json" -d "{\"prompt\": \"Recomiendame 3 nombres para una cafeteria\"}"
+# 2. Procesar Imagen
+C:\Freelance\AWS_Bedrock\docs>curl.exe -X POST "http://127.0.0.1:8000/api/v1/content/analyze-image" -F "file=@imagen_grupal.jpg" -F "caption=Describe cuantas personas hay y que profesion tienen"
