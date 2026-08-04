@@ -4,7 +4,7 @@ Ingesta de documentos PDF a la base de datos vectorial (Chroma Vector Store).
 Uso:
     python rag/ingestion.py ruta/al/documento.pdf
 """
-
+import hashlib
 import sys
 import uuid
 
@@ -50,6 +50,14 @@ def particionar_texto(texto: str, chunk_size: int = CHUNK_SIZE, overlap: int = C
         inicio += chunk_size - overlap
     return chunks
 
+def generar_id_deterministico(source: str, pagina: int, posicion_chunk: int) -> str:
+    """
+    Genera un ID único pero REPRODUCIBLE: la misma combinación de
+    (archivo, página, posición del chunk) siempre genera el MISMO id.
+    """
+    contenido = f"{source}|page={pagina}|chunk={posicion_chunk}"
+    return hashlib.sha256(contenido.encode("utf-8")).hexdigest()
+
 
 def ingesta_pdf(ruta_pdf: str, store: VectorStore) -> int:
     """
@@ -61,7 +69,8 @@ def ingesta_pdf(ruta_pdf: str, store: VectorStore) -> int:
     textos, metadatas, ids = [], [], []
 
     for texto_pagina, num_pagina in paginas:
-        for chunk in particionar_texto(texto_pagina):
+        chunks = particionar_texto(texto_pagina)
+        for posicion, chunk in enumerate(chunks):
             if not chunk.strip():
                 continue
             textos.append(chunk)
@@ -72,10 +81,11 @@ def ingesta_pdf(ruta_pdf: str, store: VectorStore) -> int:
             })
             # ID único por chunk, para evitar colisiones si ingieres
             # el mismo PDF más de una vez con distinto contenido.
-            ids.append(str(uuid.uuid4()))
+            #ids.append(str(uuid.uuid4()))
+            ids.append(generar_id_deterministico(ruta_pdf, num_pagina, posicion))
 
     if textos:
-        store.add_documents(texts=textos, metadatas=metadatas, ids=ids)
+        store.upsert_documents(texts=textos, metadatas=metadatas, ids=ids)
 
     return len(textos)
 
