@@ -1,70 +1,54 @@
 """
-Wrapper sobre ChromaDB. Aísla toda la lógica de la base de datos
-vectorial en un solo lugar, para que el resto del backend (el futuro
-agente, el MCP server) nunca tenga que saber cómo funciona Chroma por
-dentro — solo llama a add_documents() y search().
+Esto conecta con la base de datos vectorial (Chroma) y expone solo
+dos operaciones: guardar texto (upsert_documents) y buscar (search).
+
+Nada más en el backend necesita saber CÓMO funciona Chroma por dentro
+— solo llaman a estas dos funciones.
 """
 
 import chromadb
 
 from embeddings import get_embedding_function
 
-# Carpeta donde Chroma guarda la base de datos EN DISCO.
+# Carpeta donde Chroma guarda la base de datos EN DISCO (persistente).
+# Si esta carpeta no existe, Chroma la crea sola la primera vez.
 CHROMA_PATH = "./chroma_data_bryan"
 
-# Nombre de la colección. Una "colección" en Chroma es como una tabla
-# en una base de datos relacional: un espacio con nombre donde viven
-# documentos relacionados.
+# Nombre de la "tabla" (colección) donde viven todos tus documentos.
 COLLECTION_NAME = "base_de_conocimiento_vector"
 
 
 class VectorStore:
     def __init__(self, path: str = CHROMA_PATH, collection_name: str = COLLECTION_NAME):
+        # PersistentClient: abre (o crea, si es la primera vez) la
+        # base de datos guardada en la carpeta CHROMA_PATH.
         self.client = chromadb.PersistentClient(path=path)
 
-        # Ahora pasamos explícitamente nuestra función de embeddings de
-        # Hugging Face, en vez de dejar que Chroma use la suya por
-        # defecto de forma implícita.
+        # get_or_create_collection:
+        #   - Si la colección "base_de_conocimiento_vector" YA EXISTE
+        #     en disco (de una ejecución anterior) -> la abre tal cual
+        #     está, con todo lo que ya tenía guardado.
+        #   - Si NO EXISTE todavía (primera vez que corres esto) -> la
+        #     crea vacía.
+        # embedding_function: el modelo (definido en embeddings.py)
+        # que convierte cada texto en un vector antes de guardarlo.
         self.collection = self.client.get_or_create_collection(
             name=collection_name,
             embedding_function=get_embedding_function(),
         )
 
-    def add_documents(self, texts: list[str], metadatas: list[dict], ids: list[str]) -> None:
-        """
-        Agrega documentos NUEVOS. Si algún "id" ya existe en la
-        colección, Chroma Db lanza un error — úsalo solo cuando se este
-        seguro de que los ids son nuevos.
-        """
-        self.collection.add(documents=texts, metadatas=metadatas, ids=ids)
-
     def upsert_documents(self, texts: list[str], metadatas: list[dict], ids: list[str]) -> None:
         """
-        "Upsert" = update + insert. Si el "id" ya existe, ACTUALIZA ese
-        documento (sobrescribe texto/metadata/vector). Si no existe, lo
-        crea. Esto usar para ingesta de archivos
-        reales: si vuelves a correr el mismo PDF, actualiza en vez de
-        duplicar, siempre que los ids sean determinísticos (ver
-        ingesta.py: se generan a partir de la ruta + página + posición
-        del chunk, no al azar).
+        Guarda texto en la base. Si el "id" ya existía, lo actualiza
+        (sobrescribe); si no existía, lo crea. Por eso es seguro volver
+        a correr la ingesta del mismo PDF sin generar duplicados.
         """
         self.collection.upsert(documents=texts, metadatas=metadatas, ids=ids)
 
     def search(self, query: str, n_results: int = 3) -> dict:
-        """
-        Busca los documentos más relevantes para una consulta, por
-        similitud semántica (no por coincidencia exacta de palabras).
-        """
+        """Busca los "n_results" documentos más parecidos a "query" (por significado, no por palabras exactas)."""
         return self.collection.query(query_texts=[query], n_results=n_results)
 
     def count(self) -> int:
-        """Cuántos documentos hay guardados actualmente. Útil para debug."""
+        """Cuántos documentos hay guardados actualmente."""
         return self.collection.count()
-
-    def delete_by_source(self, source: str) -> None:
-        """
-        Elimina todos los chunks que vinieron de un archivo específico.
-        Útil para borras/reemplazas un PDF y quieres limpiar sus
-        fragmentos viejos de la base antes de re-ingerirlo.
-        """
-        self.collection.delete(where={"source": source})
