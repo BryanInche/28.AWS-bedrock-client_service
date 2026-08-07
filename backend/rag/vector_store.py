@@ -1,13 +1,12 @@
 """
 Esto conecta con la base de datos vectorial (Chroma) y expone solo
-dos operaciones: guardar texto (upsert_documents) y buscar (search).
-
-Nada más en el backend necesita saber CÓMO funciona Chroma por dentro
-— solo llaman a estas dos funciones.
+dos metodos: guardar texto (upsert_documents) y buscar (search).
 """
 
+# Libreria para manejar Base de Datos Vectorial
 import chromadb
 
+# Embeding de Huggieng Face
 from embeddings import get_embedding_function
 
 # Carpeta donde Chroma guarda la base de datos EN DISCO (persistente).

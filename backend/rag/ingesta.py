@@ -11,14 +11,17 @@ re-ingerir el mismo PDF actualiza sus chunks en vez de duplicarlos.
 
 import hashlib
 import sys
+from pathlib import Path
 
 from pypdf import PdfReader
 
 from vector_store import VectorStore
 
-CHUNK_SIZE = 800
-CHUNK_OVERLAP = 100
+CHUNK_SIZE = 800  # Numero de chunks rescatados para particion
+CHUNK_OVERLAP = 150 # Numero de chunks que se traen del anterior bloque
 
+# Carpeta donde viven todos los PDFs a ingerir, por convención.
+CARPETA_DOCUMENTOS = Path(r"C:\Freelance\AWS_Bedrock\backend\rag\documentos_fuentes")
 
 def extraer_texto_pdf(ruta_pdf: str) -> list[tuple[str, int]]:
     """Lee el PDF y devuelve el texto de cada página junto con su número de página."""
@@ -64,21 +67,34 @@ def ingesta_pdf(ruta_pdf: str, store: VectorStore) -> int:
             ids.append(generar_id_deterministico(ruta_pdf, num_pagina, posicion))
 
     if textos:
+        # Se agregan los documentos al Vector Store
         store.upsert_documents(texts=textos, metadatas=metadatas, ids=ids)
 
     return len(textos)
 
 
+def ingesta_carpeta_completa(carpeta: Path, store: VectorStore) -> None:
+    """
+    Recorre TODOS los archivos .pdf dentro de "carpeta" y los ingiere
+    uno por uno. glob("*.pdf") devuelve la lista de archivos que
+    terminan en .pdf dentro de esa carpeta (no busca en subcarpetas).
+    """
+    pdfs_encontrados = list(carpeta.glob("*.pdf"))
+ 
+    if not pdfs_encontrados:
+        print(f"No se encontraron PDFs en: {carpeta}")
+        return
+ 
+    print(f"Se encontraron {len(pdfs_encontrados)} PDF(s) en {carpeta}:\n")
+ 
+    for ruta_pdf in pdfs_encontrados:
+        cantidad = ingesta_pdf(ruta_pdf, store)
+        print(f" {ruta_pdf.name}: {cantidad} fragmentos procesados")
+ 
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Uso: python ingesta.py ruta/al/documento.pdf")
-        sys.exit(1)
-
-    ruta = sys.argv[1]
-
     # ---------------------------------------------------------------
-    # QUÉ PASA EXACTAMENTE AQUÍ, EN "store = VectorStore()":
-    #
     # 1. Se ejecuta __init__() de la clase VectorStore (en vector_store.py).
     # 2. Chroma revisa la carpeta "./chroma_data_bryan":
     #       - ¿Existe ya, de una ejecución anterior tuya? -> la ABRE
@@ -87,16 +103,21 @@ if __name__ == "__main__":
     #         Chroma CREA esa carpeta desde cero, vacía.
     # 3. En ninguno de los dos casos se borra nada: "store" es solo
     #    tu "conexión" para leer/escribir en esa base de datos, igual
-    #    que abrir una conexión a MySQL/PostgreSQL — no crea una base
-    #    nueva cada vez que la abres, solo te conectas a la que existe
-    #    (o la crea si es la primera vez).
-    #
+    #    que abrir una conexión a MySQL/PostgreSQL.
+    # ---------------------------------------------------------------
     # A partir de esta línea, "store" ya tiene disponibles los métodos
     # upsert_documents(), search() y count() para usar abajo.
     # ---------------------------------------------------------------
-    store = VectorStore()
 
-    print(f"--- Ingiriendo: {ruta} ---")
-    cantidad = ingesta_pdf(ruta, store)
-    print(f"Se procesaron {cantidad} fragmentos (creados o actualizados).")
-    print(f"Total de documentos en la colección: {store.count()}")
+    store = VectorStore()
+ 
+    if len(sys.argv) >= 2:
+        # Se pasó una ruta específica como argumento: solo ese archivo.
+        ruta = Path(sys.argv[1])
+        print(f"--- Ingiriendo un solo archivo: {ruta} ---")
+        cantidad = ingesta_pdf(ruta, store)
+        print(f"Se procesaron {cantidad} fragmentos.")
+    else:
+        # Sin argumentos: procesa TODOS los PDFs de documentos_fuentes/
+        print(f"--- Ingiriendo todos los PDFs de: {CARPETA_DOCUMENTOS} ---\n")
+        ingesta_carpeta_completa(CARPETA_DOCUMENTOS, store)
