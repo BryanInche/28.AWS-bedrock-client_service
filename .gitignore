@@ -26,8 +26,8 @@ __pycache__/
  ==========================================
 # RAG: documentos fuente y base de datos vectorial
 # ==========================================
-rag/documentos_fuentes/
-rag/chroma_data_bryan/
+documentos_fuentes/
+chroma_data_bryan/
 
 # ==========================================
 # DATOS Y MULTIMEDIA PESADA (OPCIONAL)
