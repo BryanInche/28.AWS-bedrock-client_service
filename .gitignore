@@ -13,6 +13,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.ruff_cache/
 
 # ==========================================
 # ARCHIVOS DE CONFIGURACIÓN Y SECRETOS
@@ -23,11 +24,27 @@ __pycache__/
 .vscode/
 *.local
 
- ==========================================
+# ==========================================
 # RAG: documentos fuente y base de datos vectorial
 # ==========================================
 documentos_fuentes/
 chroma_data_bryan/
+
+# ==========================================
+# FINE-TUNING: modelos descargados y checkpoints
+# (pesan GBs, nunca deben ir a git — se regeneran
+# corriendo los scripts, o se descargan de Hugging Face)
+# ==========================================
+fine_tuning/models/
+fine_tuning/checkpoints/
+fine_tuning/*.gguf
+fine_tuning/wandb/
+
+# ==========================================
+# FRONTEND (Node.js)
+# ==========================================
+node_modules/
+dist/
 
 # ==========================================
 # DATOS Y MULTIMEDIA PESADA (OPCIONAL)

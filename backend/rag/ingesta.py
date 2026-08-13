@@ -49,13 +49,15 @@ def generar_id_deterministico(source: str, pagina: int, posicion_chunk: int) -> 
     """Genera siempre el MISMO id para la misma combinación (archivo, página, posición)."""
     contenido = f"{source}|page={pagina}|chunk={posicion_chunk}"
     return hashlib.sha256(contenido.encode("utf-8")).hexdigest()
-
-
-def ingesta_pdf(ruta_pdf: str, store: VectorStore) -> int:
-    """Extrae, particiona y guarda un PDF completo en la base vectorial. Devuelve cuántos chunks se guardaron."""
+    
+def ingesta_pdf(ruta_pdf: Path, store: VectorStore) -> int:
+    """Extrae, particiona y guarda un PDF completo en la base vectorial.
+    Devuelve cuántos chunks se guardaron.
+    """
     paginas = extraer_texto_pdf(ruta_pdf)
 
     textos, metadatas, ids = [], [], []
+    source = str(ruta_pdf)          # 👈 ESTA línea convierte Path -> str
 
     for texto_pagina, num_pagina in paginas:
         chunks = particionar_texto(texto_pagina)
@@ -63,15 +65,13 @@ def ingesta_pdf(ruta_pdf: str, store: VectorStore) -> int:
             if not chunk.strip():
                 continue
             textos.append(chunk)
-            metadatas.append({"source": ruta_pdf, "page": num_pagina, "type": "pdf"})
-            ids.append(generar_id_deterministico(ruta_pdf, num_pagina, posicion))
+            metadatas.append({"source": source, "page": num_pagina, "type": "pdf"})  # 👈 usa "source" (str), no "ruta_pdf" (Path)
+            ids.append(generar_id_deterministico(source, num_pagina, posicion))
 
     if textos:
-        # Se agregan los documentos al Vector Store
-        store.upsert_documents(texts=textos, metadatas=metadatas, ids=ids)
+        store.upsert_documents(texts=textos, metadatas=metadatas, ids=ids)   # 👈 FALTA: esto es lo que GUARDA en Chroma
 
-    return len(textos)
-
+    return len(textos)   # DEVUELVE el número de textos
 
 def ingesta_carpeta_completa(carpeta: Path, store: VectorStore) -> None:
     """

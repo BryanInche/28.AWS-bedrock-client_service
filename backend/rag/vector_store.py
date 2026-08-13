@@ -2,6 +2,7 @@
 Esto conecta con la base de datos vectorial (Chroma) y expone solo
 dos metodos: guardar texto (upsert_documents) y buscar (search).
 """
+from pathlib import Path
 
 # Libreria para manejar Base de Datos Vectorial
 import chromadb
@@ -11,7 +12,10 @@ from embeddings import get_embedding_function
 
 # Carpeta donde Chroma guarda la base de datos EN DISCO (persistente).
 # Si esta carpeta no existe, Chroma la crea sola la primera vez.
-CHROMA_PATH = "./chroma_data_bryan"
+#CHROMA_PATH = "./chroma_data_bryan"
+
+# AHORA (absoluto, anclado al archivo, funciona desde CUALQUIER carpeta):
+CHROMA_PATH = str(Path(__file__).parent / "chroma_data_bryan")
 
 # Nombre de la "tabla" (colección) donde viven todos tus documentos.
 COLLECTION_NAME = "base_de_conocimiento_vector"
