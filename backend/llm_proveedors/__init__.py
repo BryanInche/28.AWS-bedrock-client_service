@@ -3,10 +3,12 @@ import os
 from .base import LLMProvider
 from .bedrock_llm import BedrockProvider
 from .groq_open_llm import GroqProvider
+from .finetuned_llm import FinetunedProvider
 
 _PROVIDERS = {
     "bedrock": BedrockProvider,
     "groq": GroqProvider,
+    "finetuned": FinetunedProvider,
 }
 
 

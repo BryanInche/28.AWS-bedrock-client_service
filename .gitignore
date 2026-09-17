@@ -46,6 +46,12 @@ fine_tuning/wandb/
 node_modules/
 dist/
 
+# Adaptadores y modelos
+fine_tuning/lora_bryan/
+adapters/
+*.safetensors
+**/checkpoint-*/
+
 # ==========================================
 # DATOS Y MULTIMEDIA PESADA (OPCIONAL)
 # ==========================================

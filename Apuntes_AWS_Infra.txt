@@ -15,3 +15,8 @@ git rm -r --cached backend/rag/chroma_data_bryan
 git add .gitignore
 git commit -m "Fix: c"
 
+
+
+# retrocer un git add .
+git reset fine_tuning/lora_bryan/
+
