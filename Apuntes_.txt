@@ -20,3 +20,29 @@ git commit -m "Fix: c"
 # retrocer un git add .
 git reset fine_tuning/lora_bryan/
 
+
+# Levantar Redis Stack desde Dcoker
+docker run -d --name redis-cache -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
+
+docker run	Crea y arranca un contenedor
+-d	“Detached”: corre en segundo plano, no te bloquea la terminal
+--name redis-cache	Le pone nombre al contenedor, para referirte a él después
+-p 6379:6379	Expone el puerto de Redis (tu código Python se conectará aquí)
+-p 8001:8001	Expone el puerto de la interfaz web RedisInsight
+redis/redis-stack:latest	La imagen: Redis + módulo de búsqueda vectorial + interfaz web
+
+## Paso 2:
+docker ps
+
+Debes ver una fila con redis-cache y estado Up .... Si no aparece, mira qué pasó:
+
+powershell
+docker logs redis-cache
+
+# Detener sercivios de Docker si es necesario
+docker stop redis-cache
+
+#Volver a enceder
+docker start redis-cache
+
+

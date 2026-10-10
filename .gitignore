@@ -55,6 +55,9 @@ adapters/
 # ==========================================
 # DATOS Y MULTIMEDIA PESADA (OPCIONAL)
 # ==========================================
+*.pdf
+*.PDF
+
 # Si no quieres subir tus imágenes de prueba a GitHub, desbloquea las líneas de abajo:
 # *.jpg
 # *.png

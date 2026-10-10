@@ -32,11 +32,31 @@ class FinetunedProvider(LLMProvider):
         print(f"[FinetunedProvider] Cargando modelo base: {BASE_MODEL_ID}...")
         self.tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_ID)
 
-        base_model = AutoModelForCausalLM.from_pretrained(
-            BASE_MODEL_ID,
-            dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-            device_map="auto",
-        )
+        #base_model = AutoModelForCausalLM.from_pretrained(
+        #    BASE_MODEL_ID,
+        #    dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        #    device_map="auto",
+        #)
+
+        hay_gpu = torch.cuda.is_available()
+ 
+        if hay_gpu:
+            # Con GPU real (ej. Kaggle): device_map="auto" reparte el
+            # modelo entre GPU/CPU automáticamente — tiene sentido aquí.
+            base_model = AutoModelForCausalLM.from_pretrained(
+                BASE_MODEL_ID,
+                dtype=torch.float16,
+                device_map="auto",
+            )
+        else:
+            # SIN GPU (tu laptop): cargamos directo a CPU, sin
+            # device_map. Esto evita que "accelerate" intente repartir
+            # el modelo entre dispositivos 
+            base_model = AutoModelForCausalLM.from_pretrained(
+                BASE_MODEL_ID,
+                dtype=torch.float32,
+            )
+            base_model = base_model.to("cpu")
 
         print(f"[FinetunedProvider] Aplicando adaptador LoRA: {lora_path}...")
         self.model = PeftModel.from_pretrained(base_model, lora_path, token=hf_token)

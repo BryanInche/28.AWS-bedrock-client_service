@@ -4,6 +4,7 @@ from .base import LLMProvider
 from .bedrock_llm import BedrockProvider
 from .groq_open_llm import GroqProvider
 from .finetuned_llm import FinetunedProvider
+from .cached_provider import CachedProvider
 
 _PROVIDERS = {
     "bedrock": BedrockProvider,
@@ -14,17 +15,9 @@ _PROVIDERS = {
 
 def get_provider() -> LLMProvider:
     """
-    Lee la variable de entorno LLM_PROVIDER ("bedrock" o "groq") y
-    devuelve una instancia lista para usar.
-
-    Esto es lo que te permite, sin tocar main.py ni ninguna otra parte
-    del backend, cambiar de proveedor solo editando el .env:
-
-        LLM_PROVIDER=groq      -> usa Llama 3 vía Groq (sin cuenta AWS)
-        LLM_PROVIDER=bedrock   -> usa Claude vía AWS Bedrock
-
-    Si mañana agregas OpenAI, solo creas openai_provider.py y lo
-    registras en el diccionario _PROVIDERS de arriba.
+    LLM_PROVIDER: "bedrock", "groq" o "finetuned"
+    USE_CACHE=true: envuelve el provider elegido con cache semántico
+                     sobre Redis (requiere Redis Stack corriendo).
     """
     provider_name = os.getenv("LLM_PROVIDER", "groq").lower()
 
@@ -35,4 +28,9 @@ def get_provider() -> LLMProvider:
             f"LLM_PROVIDER='{provider_name}' no es válido. Opciones disponibles: {disponibles}"
         )
 
-    return provider_class()
+    provider = provider_class()
+
+    if os.getenv("USE_CACHE", "false").lower() == "true":
+        provider = CachedProvider(provider)
+
+    return provider
